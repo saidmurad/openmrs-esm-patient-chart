@@ -136,7 +136,7 @@ const MedicationsDetailsTable: React.FC<MedicationsDetailsTableProps> = ({
       const encounterDateTime = getEncounterDateTime(medication);
       return encounterDateTime
         ? t('encounterGroupHeader', '{{dateTime}}', {
-            dateTime: dayjs(encounterDateTime).format('MMM D, YYYY, h:mm A'),
+            dateTime: formatDate(new Date(encounterDateTime), { time: true }),
           })
         : t('encounterGroupHeaderNoDate', '--');
     },
@@ -340,7 +340,7 @@ const MedicationsDetailsTable: React.FC<MedicationsDetailsTableProps> = ({
               {t('print', 'Print')}
             </Button>
           )}
-          {(showAddButton ?? true) ? (
+          {showAddButton ?? true ? (
             <Button
               kind="ghost"
               renderIcon={(props: ComponentProps<typeof AddIcon>) => <AddIcon size={16} {...props} />}

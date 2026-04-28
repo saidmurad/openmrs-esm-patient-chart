@@ -2,7 +2,7 @@ import React from 'react';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { type Order, useOrderBasket } from '@openmrs/esm-patient-common-lib';
-import { useConfig, useSession } from '@openmrs/esm-framework';
+import { formatDate, useConfig, useSession } from '@openmrs/esm-framework';
 import { mockPatientDrugOrdersApiData, mockSessionDataResponse } from '__mocks__';
 import MedicationsDetailsTable from './medications-details-table.component';
 import { mockPatient, renderWithSwr } from 'tools';
@@ -72,8 +72,12 @@ describe('MedicationsDetailsTable', () => {
       />,
     );
 
-    expect(await screen.findByText(/Apr 27, 2026, 11:49 AM/i)).toBeInTheDocument();
-    expect(screen.getByText(/Apr 27, 2026, 10:13 AM/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(formatDate(new Date('2026-04-27T11:49:00'), { time: true }), { exact: false }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(formatDate(new Date('2026-04-27T10:13:00'), { time: true }), { exact: false }),
+    ).toBeInTheDocument();
   });
 
   test('renders renew all only for encounter groups with a valid encounter uuid', async () => {
