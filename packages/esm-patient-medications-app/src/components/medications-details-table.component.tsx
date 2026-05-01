@@ -104,26 +104,24 @@ const MedicationsDetailsTable: React.FC<MedicationsDetailsTableProps> = ({
     () => new Map(results?.map((medication) => [medication.uuid, medication]) ?? []),
     [results],
   );
-  const encounterGroups = useMemo(() => {
-    const groups = new Map<string, { encounterUuid?: string; medications: Array<Order>; hasEncounterUuid: boolean }>();
-    const fallbackGroups: Array<{ encounterUuid?: string; medications: Array<Order>; hasEncounterUuid: boolean }> = [];
+  const encounterMedicationsByUuid = useMemo(() => {
+    const groups = new Map<string, Array<Order>>();
 
-    results?.forEach((medication, index) => {
+    results?.forEach((medication) => {
       const encounterUuid = medication.encounter?.uuid;
       if (!encounterUuid) {
-        fallbackGroups.push({ encounterUuid: undefined, medications: [medication], hasEncounterUuid: false });
         return;
       }
 
       const existingGroup = groups.get(encounterUuid);
       if (existingGroup) {
-        existingGroup.medications.push(medication);
+        existingGroup.push(medication);
       } else {
-        groups.set(encounterUuid, { encounterUuid, medications: [medication], hasEncounterUuid: true });
+        groups.set(encounterUuid, [medication]);
       }
     });
 
-    return [...groups.values(), ...fallbackGroups];
+    return groups;
   }, [results]);
 
   const getEncounterDateTime = useCallback((medication: Order) => {
@@ -382,64 +380,40 @@ const MedicationsDetailsTable: React.FC<MedicationsDetailsTableProps> = ({
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {encounterGroups.flatMap(
-                    ({ encounterUuid, medications: encounterMedications, hasEncounterUuid }, index) => {
-                      const groupReferenceMedication = encounterMedications[0];
-                      const allOrdersAlreadyInBasket = encounterMedications.every((medication) =>
-                        orders.some((existingOrder) => existingOrder.uuid === medication.uuid),
+                  {rows.reduce<Array<React.ReactNode>>((renderedRows, row, index) => {
+                    const medication = medicationsByUuid.get(row.id);
+                    if (!medication) {
+                      return renderedRows;
+                    }
+
+                    const previousMedication = index > 0 ? medicationsByUuid.get(rows[index - 1].id) : null;
+                    const encounterUuid = medication.encounter?.uuid;
+                    const previousEncounterUuid = previousMedication?.encounter?.uuid;
+                    const encounterGroupKey = encounterUuid ?? `missing-${row.id}`;
+
+                    if (encounterGroupKey !== (previousEncounterUuid ?? `missing-${rows[index - 1]?.id}`)) {
+                      const encounterMedications = encounterUuid
+                        ? encounterMedicationsByUuid.get(encounterUuid) ?? [medication]
+                        : [medication];
+                      const allOrdersAlreadyInBasket = encounterMedications.every((groupMedication) =>
+                        orders.some((existingOrder) => existingOrder.uuid === groupMedication.uuid),
                       );
 
-                      const groupRows = encounterMedications
-                        .map((medication) => {
-                          const row = rows.find((currentRow) => currentRow.id === medication.uuid);
-                          if (!row) {
-                            return null;
-                          }
-
-                          return (
-                            <TableRow className={styles.row} key={row.id} {...getRowProps({ row })}>
-                              {row.cells.map((cell) => (
-                                <TableCell className={styles.tableCell} key={cell.id}>
-                                  {cell.value?.content ?? cell.value}
-                                </TableCell>
-                              ))}
-
-                              {!isPrinting && (
-                                <TableCell className="cds--table-column-menu">
-                                  <OrderBasketItemActions
-                                    patient={patient}
-                                    showDiscontinueButton={showDiscontinueButton}
-                                    showModifyButton={showModifyButton}
-                                    showRenewButton={showRenewButton}
-                                    medication={medication}
-                                    items={orders}
-                                    setItems={setOrders}
-                                  />
-                                </TableCell>
-                              )}
-                            </TableRow>
-                          );
-                        })
-                        .filter(Boolean);
-
-                      return [
-                        <TableRow
-                          key={`encounter-${encounterUuid ?? `missing-${index}`}`}
-                          className={styles.encounterRow}
-                        >
+                      renderedRows.push(
+                        <TableRow key={`encounter-${encounterGroupKey}`} className={styles.encounterRow}>
                           <TableCell
                             className={styles.encounterHeaderCell}
                             colSpan={headers.length + (isPrinting ? 0 : 1)}
                           >
                             <div className={styles.encounterHeaderContent}>
-                              <span>{getEncounterGroupLabel(groupReferenceMedication)}</span>
-                              {!isPrinting && showRenewButton && hasEncounterUuid && (
+                              <span>{getEncounterGroupLabel(medication)}</span>
+                              {!isPrinting && showRenewButton && encounterUuid && (
                                 <Button
                                   kind="ghost"
                                   size="sm"
                                   className={styles.renewAllButton}
                                   disabled={allOrdersAlreadyInBasket}
-                                  onClick={() => handleRenewAllClick(encounterUuid!, encounterMedications)}
+                                  onClick={() => handleRenewAllClick(encounterUuid, encounterMedications)}
                                 >
                                   {t('renewAll', 'Renew all')}
                                 </Button>
@@ -447,10 +421,35 @@ const MedicationsDetailsTable: React.FC<MedicationsDetailsTableProps> = ({
                             </div>
                           </TableCell>
                         </TableRow>,
-                        ...groupRows,
-                      ];
-                    },
-                  )}
+                      );
+                    }
+
+                    renderedRows.push(
+                      <TableRow className={styles.row} key={row.id} {...getRowProps({ row })}>
+                        {row.cells.map((cell) => (
+                          <TableCell className={styles.tableCell} key={cell.id}>
+                            {cell.value?.content ?? cell.value}
+                          </TableCell>
+                        ))}
+
+                        {!isPrinting && (
+                          <TableCell className="cds--table-column-menu">
+                            <OrderBasketItemActions
+                              patient={patient}
+                              showDiscontinueButton={showDiscontinueButton}
+                              showModifyButton={showModifyButton}
+                              showRenewButton={showRenewButton}
+                              medication={medication}
+                              items={orders}
+                              setItems={setOrders}
+                            />
+                          </TableCell>
+                        )}
+                      </TableRow>,
+                    );
+
+                    return renderedRows;
+                  }, [])}
                 </TableBody>
               </Table>
             </TableContainer>
