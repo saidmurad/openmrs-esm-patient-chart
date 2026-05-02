@@ -107,7 +107,7 @@ const MedicationsDetailsTable: React.FC<MedicationsDetailsTableProps> = ({
   const encounterMedicationsByUuid = useMemo(() => {
     const groups = new Map<string, Array<Order>>();
 
-    results?.forEach((medication) => {
+    medications?.forEach((medication) => {
       const encounterUuid = medication.encounter?.uuid;
       if (!encounterUuid) {
         return;
@@ -122,23 +122,16 @@ const MedicationsDetailsTable: React.FC<MedicationsDetailsTableProps> = ({
     });
 
     return groups;
-  }, [results]);
-
-  const getEncounterDateTime = useCallback((medication: Order) => {
-    const encounter = medication.encounter as Record<string, any> | undefined;
-    return encounter?.encounterDatetime ?? encounter?.date ?? encounter?.obsDatetime ?? medication.dateActivated;
-  }, []);
+  }, [medications]);
 
   const getEncounterGroupLabel = useCallback(
     (medication: Order) => {
-      const encounterDateTime = getEncounterDateTime(medication);
+      const encounterDateTime = medication.encounter?.encounterDatetime;
       return encounterDateTime
-        ? t('encounterGroupHeader', '{{dateTime}}', {
-            dateTime: formatDate(new Date(encounterDateTime), { time: true }),
-          })
-        : t('encounterGroupHeaderNoDate', '--');
+        ? formatDate(new Date(encounterDateTime), { time: true })
+        : t('unknownEncounterDate', 'Unknown date');
     },
-    [getEncounterDateTime, t],
+    [t],
   );
 
   const handleRenewAllClick = useCallback(

@@ -40,8 +40,6 @@
   "editDrugOrderWorkspaceTitle": "Edit drug order",
   "editFrequencyComboBoxTitle": "Frequency",
   "editRouteComboBoxTitle": "Route",
-  "encounterGroupHeader": "{{dateTime}}",
-  "encounterGroupHeaderNoDate": "--",
   "error": "Error",
   "errorFetchingDrugOrderTemplates": "Error fetching drug order templates",
   "errorFetchingDrugResults": "Error fetching results for \"{{searchTerm}}\"",
@@ -126,6 +124,7 @@
   "tryReopeningTheForm": "Please try launching the form again",
   "trySearchingAgain": "Please try searching again",
   "tryTo": "Try to",
+  "unknownEncounterDate": "Unknown date",
   "unknown": "Unknown",
   "updated": "Updated",
   "usingADifferentTerm": "using a different term"
