@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { type Order, useOrderBasket } from '@openmrs/esm-patient-common-lib';
 import { formatDate, useConfig, useSession } from '@openmrs/esm-framework';
@@ -35,6 +35,69 @@ describe('MedicationsDetailsTable', () => {
       showPrintButton: false,
       excludePatientIdentifierCodeTypes: { uuids: [] },
     });
+  });
+
+  function medicationNamesInTableOrder(table: HTMLElement, drugNamePattern: RegExp): Array<string> {
+    const names: Array<string> = [];
+    for (const row of within(table).getAllByRole('row')) {
+      const label = within(row).queryByText(drugNamePattern);
+      if (label?.textContent) {
+        names.push(label.textContent.trim());
+      }
+    }
+    return names;
+  }
+
+  test('sorting by start date reorders medication rows within encounter groups', async () => {
+    const user = userEvent.setup();
+    const encounter = {
+      uuid: 'enc-sort-test',
+      display: 'Encounter',
+      encounterDatetime: '2026-04-27T12:00:00',
+    };
+    const newerLaterInList = {
+      ...mockPatientDrugOrdersApiData[0],
+      uuid: 'med-newer',
+      dateActivated: '2026-05-02T10:00:00.000+0000',
+      drug: {
+        ...mockPatientDrugOrdersApiData[0].drug,
+        display: 'Sorttest newer drug',
+      },
+      encounter,
+    };
+    const olderEarlierInList = {
+      ...mockPatientDrugOrdersApiData[1],
+      uuid: 'med-older',
+      dateActivated: '2026-05-01T10:00:00.000+0000',
+      drug: {
+        ...mockPatientDrugOrdersApiData[1].drug,
+        display: 'Sorttest older drug',
+      },
+      encounter,
+    };
+    const medications = [newerLaterInList, olderEarlierInList] as unknown as Array<Order>;
+
+    renderWithSwr(
+      <MedicationsDetailsTable
+        title="Active Medications"
+        medications={medications}
+        patient={mockPatient}
+        showDiscontinueButton
+        showModifyButton
+        showRenewButton
+      />,
+    );
+
+    const table = await screen.findByRole('table', { name: /medications/i });
+
+    const drugPattern = /^Sorttest (newer|older) drug$/;
+
+    expect(medicationNamesInTableOrder(table, drugPattern)).toEqual(['Sorttest newer drug', 'Sorttest older drug']);
+
+    const startDateHeader = screen.getByRole('columnheader', { name: /start date/i });
+    await user.click(within(startDateHeader).getByRole('button'));
+
+    expect(medicationNamesInTableOrder(table, drugPattern)).toEqual(['Sorttest older drug', 'Sorttest newer drug']);
   });
 
   test('renders encounter date-time group headers', async () => {
@@ -78,6 +141,33 @@ describe('MedicationsDetailsTable', () => {
     expect(
       screen.getByText(formatDate(new Date('2026-04-27T10:13:00'), { time: true }), { exact: false }),
     ).toBeInTheDocument();
+  });
+
+  test('renders unknown encounter date when encounter has uuid but no encounterDatetime', async () => {
+    const medications = [
+      {
+        ...mockPatientDrugOrdersApiData[0],
+        uuid: 'med-1',
+        dateActivated: '2026-04-27T11:49:00',
+        encounter: {
+          uuid: 'enc-1',
+          display: 'Encounter',
+        },
+      },
+    ] as unknown as Array<Order>;
+
+    renderWithSwr(
+      <MedicationsDetailsTable
+        title="Active Medications"
+        medications={medications}
+        patient={mockPatient}
+        showDiscontinueButton
+        showModifyButton
+        showRenewButton
+      />,
+    );
+
+    expect(await screen.findByText(/unknown date/i)).toBeInTheDocument();
   });
 
   test('renders renew all only for encounter groups with a valid encounter uuid', async () => {
